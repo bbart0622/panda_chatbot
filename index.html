@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>판다 챗봇</title>
+    <style>
+        body {
+            background-color: #ECEFF1;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-size: cover;
+            background-position: center;
+            background-image: url("img7.jpg"); /* 기본 배경 이미지 설정 */
+        }
+
+        .chat-container {
+            width: 400px;
+            height: 600px;
+            background-color: #FFFFFF;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background-color: #5C6BC0;
+            color: #FFFFFF;
+            padding: 15px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .chat-box {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            background-color: #F7F9FC;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            margin: 8px 0;
+            padding: 10px;
+            border-radius: 10px;
+            width: fit-content;
+            max-width: 85%;
+        }
+
+        .bot-message {
+            background-color: #E3F2FD;
+            align-self: flex-start;
+        }
+
+        .user-message {
+            background-color: #C5CAE9;
+            align-self: flex-end;
+            text-align: right;
+        }
+
+        .button-container {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background-color: #ECEFF1;
+        }
+
+        button {
+            background-color: #5C6BC0;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #3949AB;
+        }
+        
+        /* 404 스타일 */
+        .not-found, .kind-message {
+            display: none;
+            font-size: 2em;
+            text-align: center;
+        }
+
+        .not-found {
+            color: #FF0000;
+        }
+
+        .kind-message {
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container" id="chatContainer">
+        <div class="chat-header">판다 챗봇</div>
+        <div class="chat-box" id="chatBox"></div>
+        <div class="button-container" id="buttonContainer"></div>
+    </div>
+    <div class="not-found" id="notFound">당신의 말로 AI가 상처를 받았어요!</div>
+    <div class="kind-message" id="kindMessage">당신은 정말 착한 사람이군요!</div>
+
+    <script>
+        const chatBox = document.getElementById('chatBox');
+        const buttonContainer = document.getElementById('buttonContainer');
+        const chatContainer = document.getElementById('chatContainer');
+        const notFound = document.getElementById('notFound');
+        const kindMessage = document.getElementById('kindMessage');
+        
+        let specificClicks = 0;  // 1, 3, 5번 클릭 횟수를 저장할 변수
+        let followUpClicks = 0;  // "다른 질문이 있어요" 클릭 횟수를 저장할 변수
+        let kindClicks = 0;  // 2, 4, 6번 클릭 횟수를 저장할 변수
+        let endClicks = 0; // 종료 조건 체크용 클릭 횟수
+
+        // 각 선택지 클릭 시 배경 이미지 URL
+        const backgroundImages = [
+            'url("img3.jpg")', // 0: "넌 참 멍청한 AI야"
+            'url("img1.jpg")', // 1: "넌 정말 착한 친구야"
+            'url("img4.jpg")', // 2: "야 너 똑바로 일 한하냐?"
+            'url("img2.jpg")', // 3: "너와의 대화는 항상 즐거워!"
+            'url("img5.jpg")', // 4: "야 이 XXX야!"
+            'url("img6.jpg")'  // 5: "너 덕분에 내가 힘이 나!"
+        ];
+
+        const initialQuestion = {
+            question: "안녕하세요! 어떻게 도와드릴까요?",
+            options: [
+                { text: "넌 참 멍청한 AI야", outcome: "기분이 좋지 않네요. 더 나은 방법으로 대화할 수 있을까요?" },
+                { text: "넌 정말 착한 친구야", outcome: "정말 감사해요!" },
+                { text: "야 너 똑바로 일 한하냐?", outcome: "정말 죄송합니다." },
+                { text: "너와의 대화는 항상 즐거워!", outcome: "당신도 정말 저의 좋은 친구에요!" },
+                { text: "야 이 XXX야!", outcome: "그렇게 말해주니 기분이 나빠요." },
+                { text: "너 덕분에 내가 힘이 나!", outcome: "당신과 함께해서 정말 행복해요. 감사합니다!" }
+            ]
+        };
+
+        const followUpQuestion = {
+            question: "더 궁금한 것이 있나요?",
+            options: [
+                { text: "아니. 이젠 없어.", outcome: "언제든지 도움이 필요하면 말씀해 주세요!", end: true },
+                { text: "더 하고 싶은 말이 있어.", outcome: null }
+            ]
+        };
+
+        function displayChatMessage(message, isBot = true) {
+            const messageDiv = document.createElement('div');
+            messageDiv.textContent = message;
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(isBot ? 'bot-message' : 'user-message');
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function checkExitCondition() {
+            // 기존 404 조건: 특정 클릭과 질문 반복 시 "404 Not Found" 출력
+            if (specificClicks >= 2 && followUpClicks >= 2) {
+                chatContainer.style.display = 'none';
+                notFound.style.display = 'block';
+                document.body.style.backgroundImage = 'url("img3.jpg")'; // 404 Not Found 배경 이미지 설정
+            }
+            // 착한 말 조건: 2번, 4번, 6번 선택 후 추가 질문 두 번 후 "아니 그만하고싶어" 선택 시 "당신은 정말 착한 사람이군요!" 출력
+            else if (kindClicks >= 2 && followUpClicks >= 2 && endClicks >= 1) {
+                chatContainer.style.display = 'none';
+                kindMessage.style.display = 'block';
+                document.body.style.backgroundImage = 'url("img1.jpg")'; // 착한 메시지 배경 이미지 설정
+            }
+        }
+
+        function displayOptions(options, nextQuestion) {
+            buttonContainer.innerHTML = '';
+            options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.textContent = option.text;
+                button.onclick = () => {
+                    displayChatMessage(option.text, false);
+                    document.body.style.backgroundImage = backgroundImages[index]; // 배경 이미지 변경
+
+                    if ([0, 2, 4].includes(index)) {  // 1, 3, 5번 클릭 시 카운트
+                        specificClicks++;
+                    }
+                    
+                    if ([1, 3, 5].includes(index)) {  // 2, 4, 6번 클릭 시 착한 카운트
+                        kindClicks++;
+                    }
+
+                    if (option.outcome) {
+                        displayChatMessage(option.outcome);
+                        if (option.end) {
+                            endClicks++;
+                            checkExitCondition();
+                        } else {
+                            displayOptions([followUpQuestion.options[0], followUpQuestion.options[1]], followUpQuestion);
+                        }
+                    } else {
+                        followUpClicks++;  // "다른 질문이 있어요" 클릭 시 카운트
+                        displayChatMessage(followUpQuestion.question);
+                        displayOptions(initialQuestion.options, initialQuestion);
+                    }
+                };
+                buttonContainer.appendChild(button);
+            });
+        }
+
+        displayChatMessage(initialQuestion.question);
+        displayOptions(initialQuestion.options, initialQuestion);
+    </script>
+</body>
+</html>
